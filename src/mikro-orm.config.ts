@@ -2,13 +2,14 @@ import { MikroORM } from "@mikro-orm/core";
 import { __prod__ } from "./constants";
 import { Post } from "./entities/Post";
 import path from "path";
+import { User } from "./entities/User";
 
 export default {
   migrations: {
     pattern: /^[\w-]+\d+\.[tj]s$/,
     path: path.join(__dirname, "./migrations")
   },
-  entities: [Post],
+  entities: [Post, User],
   dbName: "redisReactGraphql",
   type: "postgresql",
   debug: !__prod__,
