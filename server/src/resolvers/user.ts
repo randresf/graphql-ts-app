@@ -4,7 +4,6 @@ import {
   Arg,
   Ctx,
   Field,
-  InputType,
   Mutation,
   ObjectType,
   Resolver,
@@ -13,14 +12,9 @@ import {
 import { hash as argonHash, verify as argonVerify } from "argon2";
 import { EntityManager } from "@mikro-orm/postgresql";
 import { cookieName } from "../constants";
-
-@InputType()
-class UsernamePasswordInput {
-  @Field()
-  username: string;
-  @Field()
-  password: string;
-}
+import { UsernamePasswordInput } from "./UsernamePasswordInput";
+import { validateRegister } from "../utils/validateRegister";
+import { sendEmail } from "src/utils/sendEmail";
 
 @ObjectType()
 class FieldError {
@@ -55,16 +49,8 @@ export class UserResolver {
     @Arg("options") options: UsernamePasswordInput,
     @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
-    if (options.username.length <= 2) {
-      return {
-        errors: [{ field: "username", message: "username too short" }]
-      };
-    }
-    if (options.password.length <= 3) {
-      return {
-        errors: [{ field: "password", message: "password  too short" }]
-      };
-    }
+    const errors = validateRegister(options);
+    if (errors) return { errors };
     const hashedPwd = await argonHash(options.password);
     let user;
     try {
@@ -75,7 +61,8 @@ export class UserResolver {
           username: options.username,
           password: hashedPwd,
           created_at: new Date(),
-          updated_at: new Date()
+          updated_at: new Date(),
+          email: options.email
         })
         .returning("*");
       user = result[0];
@@ -93,18 +80,24 @@ export class UserResolver {
 
   @Mutation(() => UserResponse)
   async login(
-    @Arg("options") options: UsernamePasswordInput,
+    @Arg("usernameOrEmail") usernameOrEmail: string,
+    @Arg("password") password: string,
     @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
-    const user = await em.findOne(User, {
-      username: options.username
-    });
+    const user = await em.findOne(
+      User,
+      usernameOrEmail.includes("@")
+        ? { email: usernameOrEmail }
+        : { username: usernameOrEmail }
+    );
     if (!user) {
       return {
-        errors: [{ field: "username", message: "username does not exist" }]
+        errors: [
+          { field: "usernameOrEmail", message: "username does not exist" }
+        ]
       };
     }
-    const valid = await argonVerify(user.password, options.password);
+    const valid = await argonVerify(user.password, password);
     if (!valid) {
       return {
         errors: [{ field: "password", message: "password does not match" }]
@@ -130,5 +123,18 @@ export class UserResolver {
         resolve(true);
       })
     );
+  }
+
+  @Mutation(() => Boolean)
+  async forgotPassword(@Ctx() { em }: MyContext, @Arg("email") email: string) {
+    const user = await em.findOne(User, { email });
+    // in case is called from somewhere else we dont need to say that this user exists or no
+    if (!user) return true;
+    const token = "";
+    await sendEmail(
+      email,
+      `<a href="http://localhost:3000/change-pwd/${token}> reset password</a>"`
+    );
+    return true;
   }
 }
