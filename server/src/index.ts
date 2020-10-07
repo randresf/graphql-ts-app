@@ -8,12 +8,12 @@ import { buildSchema } from "type-graphql";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
+import { sendEmail } from "./utils/sendEmail";
 
 import session from "express-session";
-import { createClient } from "redis";
+import Redis from "ioredis";
 import connectRedis from "connect-redis";
 import cors from "cors";
-import { sendEmail } from "./utils/sendEmail";
 
 const main = async () => {
   sendEmail("bob@bob.com", "hello there");
@@ -26,7 +26,7 @@ const main = async () => {
   const app = express();
 
   const RedisStore = connectRedis(session);
-  const redisClient = createClient();
+  const redis = new Redis();
   // the order of the middleware use matters
   app.use(
     // apply to all routes
@@ -39,7 +39,7 @@ const main = async () => {
   app.use(
     session({
       name: cookieName,
-      store: new RedisStore({ client: redisClient, disableTouch: true }), // disable Touch TTL, meaning the session is alive until manual removal
+      store: new RedisStore({ client: redis, disableTouch: true }), // disable Touch TTL, meaning the session is alive until manual removal
       cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
         httpOnly: true, // html readonly
@@ -48,7 +48,7 @@ const main = async () => {
       },
       saveUninitialized: false,
       secret: "asasdadadadasd",
-      resave: false // make sure does  notcontinue to ping redis
+      resave: false // make sure does  not continue to ping redis
     })
   );
 
@@ -58,7 +58,7 @@ const main = async () => {
       validate: false
     }),
     // express provides the request object so we can access to req and res
-    context: ({ res, req }) => ({ em: orm.em, req, res }) // provide the context to the resolvers
+    context: ({ res, req }) => ({ em: orm.em, req, res, redis }) // provide the context to the resolvers
   });
 
   // adding cors:{origin:"http://localhost:3000"} here will fix cors issue but only for this route

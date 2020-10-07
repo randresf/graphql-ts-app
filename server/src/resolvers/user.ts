@@ -11,10 +11,11 @@ import {
 } from "type-graphql";
 import { hash as argonHash, verify as argonVerify } from "argon2";
 import { EntityManager } from "@mikro-orm/postgresql";
-import { cookieName } from "../constants";
+import { cookieName, FORGET_PWD_PREFIX } from "../constants";
 import { UsernamePasswordInput } from "./UsernamePasswordInput";
 import { validateRegister } from "../utils/validateRegister";
-import { sendEmail } from "src/utils/sendEmail";
+import { sendEmail } from "../utils/sendEmail";
+import { v4 } from "uuid";
 
 @ObjectType()
 class FieldError {
@@ -126,11 +127,20 @@ export class UserResolver {
   }
 
   @Mutation(() => Boolean)
-  async forgotPassword(@Ctx() { em }: MyContext, @Arg("email") email: string) {
+  async forgotPassword(
+    @Ctx() { em, redis }: MyContext,
+    @Arg("email") email: string
+  ) {
     const user = await em.findOne(User, { email });
     // in case is called from somewhere else we dont need to say that this user exists or no
     if (!user) return true;
-    const token = "";
+    const token = v4();
+    redis.set(
+      `${FORGET_PWD_PREFIX}${token}`,
+      user.id,
+      "ex",
+      1000 * 60 * 60 * 24 * 3
+    ); // 3 days
     await sendEmail(
       email,
       `<a href="http://localhost:3000/change-pwd/${token}> reset password</a>"`

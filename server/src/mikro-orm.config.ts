@@ -10,8 +10,8 @@ export default {
     path: path.join(__dirname, "./migrations")
   },
   entities: [Post, User],
-  dbName: "redisReactGraphql",
+  dbName: "redisReactGraphql", //   dbName: "redisReactGraphql",//
   type: "postgresql",
   debug: !__prod__,
-  password: "admin"
+  password: "admin" //   password: "admin"//
 } as Parameters<typeof MikroORM.init>[0]; // parameters returns an array so we get only first

@@ -1,5 +1,5 @@
 import { cacheExchange } from "@urql/exchange-graphcache";
-import { createClient, dedupExchange, fetchExchange } from "urql";
+import { dedupExchange, fetchExchange } from "urql";
 import {
   LogoutMutation,
   MeQuery,
