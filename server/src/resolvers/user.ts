@@ -135,7 +135,7 @@ export class UserResolver {
     // in case is called from somewhere else we dont need to say that this user exists or no
     if (!user) return true;
     const token = v4();
-    redis.set(
+    await redis.set(
       `${FORGET_PWD_PREFIX}${token}`,
       user.id,
       "ex",
@@ -143,8 +143,56 @@ export class UserResolver {
     ); // 3 days
     await sendEmail(
       email,
-      `<a href="http://localhost:3000/change-pwd/${token}> reset password</a>"`
+      `<a href="http://localhost:3000/change-pwd/${token}">reset password</a>`
     );
     return true;
+  }
+
+  @Mutation(() => UserResponse)
+  async changePassword(
+    @Arg("token") token: string,
+    @Arg("newPassword") newPassword: string,
+    @Ctx() { em, redis, req }: MyContext
+  ) {
+    if (newPassword.length <= 2) {
+      return [
+        {
+          field: "newPassword",
+          message: "length must be greater than 2"
+        }
+      ];
+    }
+
+    const userId = await redis.get(FORGET_PWD_PREFIX + token);
+
+    if (!userId) {
+      return {
+        errors: [
+          {
+            field: "token",
+            message: "invalid token"
+          }
+        ]
+      };
+    }
+
+    const user = await em.findOne(User, { id: parseInt(userId) });
+
+    if (!user) {
+      return {
+        errors: [
+          {
+            field: "token",
+            message: "user no longer exists"
+          }
+        ]
+      };
+    }
+    const hashedPwd = await argonHash(newPassword);
+    user.password = hashedPwd;
+    em.persistAndFlush(user);
+    // login after change
+    req.session.userId = user.id;
+    return { user };
   }
 }
