@@ -123,13 +123,15 @@ export type RegularUserFragment = (
 
 export type RegularUserResponseFragment = (
   { __typename?: 'UserResponse' }
-  & { errors?: Maybe<Array<(
-    { __typename?: 'FieldError' }
-    & RegularErrorFragment
-  )>>, user?: Maybe<(
-    { __typename?: 'User' }
-    & RegularUserFragment
-  )> }
+  & {
+    errors?: Maybe<Array<(
+      { __typename?: 'FieldError' }
+      & RegularErrorFragment
+    )>>, user?: Maybe<(
+      { __typename?: 'User' }
+      & RegularUserFragment
+    )>
+  }
 );
 
 export type ChangePasswordMutationVariables = Exact<{
@@ -140,10 +142,22 @@ export type ChangePasswordMutationVariables = Exact<{
 
 export type ChangePasswordMutation = (
   { __typename?: 'Mutation' }
-  & { changePassword: (
-    { __typename?: 'UserResponse' }
-    & RegularUserResponseFragment
-  ) }
+  & {
+    changePassword: (
+      { __typename?: 'UserResponse' }
+      & RegularUserResponseFragment
+    )
+  }
+);
+
+export type ForgotPasswordMutationVariables = Exact<{
+  email: Scalars['String'];
+}>;
+
+
+export type ForgotPasswordMutation = (
+  { __typename?: 'Mutation' }
+  & Pick<Mutation, 'forgotPassword'>
 );
 
 export type LoginMutationVariables = Exact<{
@@ -154,10 +168,12 @@ export type LoginMutationVariables = Exact<{
 
 export type LoginMutation = (
   { __typename?: 'Mutation' }
-  & { login: (
-    { __typename?: 'UserResponse' }
-    & RegularUserResponseFragment
-  ) }
+  & {
+    login: (
+      { __typename?: 'UserResponse' }
+      & RegularUserResponseFragment
+    )
+  }
 );
 
 export type LogoutMutationVariables = Exact<{ [key: string]: never; }>;
@@ -175,10 +191,12 @@ export type RegisterMutationVariables = Exact<{
 
 export type RegisterMutation = (
   { __typename?: 'Mutation' }
-  & { register: (
-    { __typename?: 'UserResponse' }
-    & RegularUserResponseFragment
-  ) }
+  & {
+    register: (
+      { __typename?: 'UserResponse' }
+      & RegularUserResponseFragment
+    )
+  }
 );
 
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
@@ -186,10 +204,12 @@ export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type MeQuery = (
   { __typename?: 'Query' }
-  & { me?: Maybe<(
-    { __typename?: 'User' }
-    & RegularUserFragment
-  )> }
+  & {
+    me?: Maybe<(
+      { __typename?: 'User' }
+      & RegularUserFragment
+    )>
+  }
 );
 
 export type PostsQueryVariables = Exact<{ [key: string]: never; }>;
@@ -197,10 +217,12 @@ export type PostsQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type PostsQuery = (
   { __typename?: 'Query' }
-  & { posts: Array<(
-    { __typename?: 'Post' }
-    & Pick<Post, 'id' | 'createdAt' | 'updatedAt' | 'title'>
-  )> }
+  & {
+    posts: Array<(
+      { __typename?: 'Post' }
+      & Pick<Post, 'id' | 'createdAt' | 'updatedAt' | 'title'>
+    )>
+  }
 );
 
 export const RegularErrorFragmentDoc = gql`
@@ -236,6 +258,15 @@ export const ChangePasswordDocument = gql`
 
 export function useChangePasswordMutation() {
   return Urql.useMutation<ChangePasswordMutation, ChangePasswordMutationVariables>(ChangePasswordDocument);
+};
+export const ForgotPasswordDocument = gql`
+    mutation ForgotPassword($email: String!) {
+  forgotPassword(email: $email)
+}
+    `;
+
+export function useForgotPasswordMutation() {
+  return Urql.useMutation<ForgotPasswordMutation, ForgotPasswordMutationVariables>(ForgotPasswordDocument);
 };
 export const LoginDocument = gql`
     mutation Login($usernameOrEmail: String!, $password: String!) {

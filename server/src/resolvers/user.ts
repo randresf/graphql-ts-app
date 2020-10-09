@@ -155,15 +155,17 @@ export class UserResolver {
     @Ctx() { em, redis, req }: MyContext
   ) {
     if (newPassword.length <= 2) {
-      return [
-        {
-          field: "newPassword",
-          message: "length must be greater than 2"
-        }
-      ];
+      return {
+        errors: [
+          {
+            field: "newPassword",
+            message: "length must be greater than 2"
+          }
+        ]
+      };
     }
-
-    const userId = await redis.get(FORGET_PWD_PREFIX + token);
+    const key = FORGET_PWD_PREFIX + token
+    const userId = await redis.get(key);
 
     if (!userId) {
       return {
@@ -191,6 +193,7 @@ export class UserResolver {
     const hashedPwd = await argonHash(newPassword);
     user.password = hashedPwd;
     em.persistAndFlush(user);
+    await redis.del(key);
     // login after change
     req.session.userId = user.id;
     return { user };
