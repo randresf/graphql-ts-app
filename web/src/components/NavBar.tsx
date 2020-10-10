@@ -4,9 +4,9 @@ import NextLink from "next/link";
 import { useLogoutMutation, useMeQuery } from "../generated/graphql";
 import { isServer } from "../utils/isServer";
 
-interface NavBarProps {}
+interface NavBarProps { }
 
-export const NavBar: React.FC<NavBarProps> = ({}) => {
+export const NavBar: React.FC<NavBarProps> = ({ }) => {
   const [{ data, fetching }] = useMeQuery({ pause: isServer() });
   const [{ fetching: logoutFetching }, logout] = useLogoutMutation();
   let bd = null;
@@ -39,7 +39,7 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
     );
   }
   return (
-    <Flex bg="tan" p={4}>
+    <Flex position="sticky" top="0" zIndex={1} bg="tan" p={4}>
       <Box ml="auto">{bd}</Box>
     </Flex>
   );

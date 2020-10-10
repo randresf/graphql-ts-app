@@ -1,24 +1,46 @@
-import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
+import { Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Column, BaseEntity, ManyToOne, OneToMany } from "typeorm";
 import { Field, ObjectType } from "type-graphql";
+import moment from 'moment'
+import { User } from "./User";
+import { Updoot } from "./Updoot";
 
 // we can stack decorators to re-use this class for the
 // ORM but also for the graphql resolver
-@ObjectType() // graphql
+@ObjectType() // graphql allows to expone the fields
 @Entity() // orm
-export class Post {
+export class Post extends BaseEntity { // allows Post.find or Post.insert
   @Field() // graphql
-  @PrimaryKey() // orm
+  @PrimaryGeneratedColumn() // orm
   id!: number;
 
-  @Field(() => String) // commenting this will stop exposing searchs by this field
-  @Property({ type: "date" })
-  createdAt = new Date();
-
-  @Field(() => String)
-  @Property({ type: "date", onUpdate: () => new Date() })
-  updatedAt = new Date();
+  @Field()
+  @Column()
+  title!: string;
 
   @Field()
-  @Property({ type: "text" })
-  title!: string;
+  @Column()
+  text!: string;
+
+  @Field()
+  @Column({ type: 'int', default: 0 })
+  points!: number;
+
+  @Field()
+  @Column()
+  creatorId!: number;
+
+  @OneToMany(() => Updoot, updoot => updoot.post)
+  updoots: Updoot[];
+
+  @Field()
+  @ManyToOne(() => User, user => user.posts)
+  creator: User
+
+  @Field(() => String) // commenting this will stop exposing searchs by this field
+  @CreateDateColumn()
+  createdAt = moment.utc().format();
+
+  @Field(() => String)
+  @UpdateDateColumn()
+  updatedAt = moment.utc().format();
 }

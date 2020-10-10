@@ -1,27 +1,41 @@
-import "reflect-metadata";
-import { MikroORM } from "@mikro-orm/core";
+import "reflect-metadata"; // needed for tyorm and mikro-orm
 import { cookieName, __prod__ } from "./constants";
-import microConfig from "./mikro-orm.config";
 import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { buildSchema } from "type-graphql";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
-import { sendEmail } from "./utils/sendEmail";
 
 import session from "express-session";
 import Redis from "ioredis";
 import connectRedis from "connect-redis";
 import cors from "cors";
+import { createConnection } from 'typeorm'
+import { Post } from "./entities/Post";
+import { User } from "./entities/User";
+import path from 'path'
+import { Updoot } from "./entities/Updoot";
 
 const main = async () => {
-  sendEmail("bob@bob.com", "hello there");
-  // connect to the db
-  const orm = await MikroORM.init(microConfig);
 
-  // run migrations before doing something else
-  await orm.getMigrator().up();
+  // connect to the db
+  const conn = await createConnection({
+    type: 'postgres',
+    database: 'graphql-ts-app',
+    username: 'randresf',
+    password: 'randresf',
+    logging: true,
+    synchronize: true, // creates the tables without migrations,
+    entities: [Post, User, Updoot],
+    migrations: [path.join(__dirname, "./migrations/*")]
+  })
+
+  await conn.runMigrations()
+
+  // await Post.delete({})
+
+  //run migrations before doing something else
 
   const app = express();
 
@@ -46,7 +60,7 @@ const main = async () => {
         secure: __prod__, // means it will work only on https for prod
         sameSite: "lax" // csrf
       },
-      saveUninitialized: false,
+      saveUninitialized: false, // do not create default session
       secret: "asasdadadadasd",
       resave: false // make sure does  not continue to ping redis
     })
@@ -58,7 +72,7 @@ const main = async () => {
       validate: false
     }),
     // express provides the request object so we can access to req and res
-    context: ({ res, req }) => ({ em: orm.em, req, res, redis }) // provide the context to the resolvers
+    context: ({ res, req }) => ({ req, res, redis }) // provide the context to the resolvers
   });
 
   // adding cors:{origin:"http://localhost:3000"} here will fix cors issue but only for this route
