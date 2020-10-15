@@ -4,6 +4,7 @@ import { MyContext } from "../type";
 import { isAuth } from "../middleware/isAuth";
 import { getConnection } from "typeorm";
 import { Updoot } from "../entities/Updoot";
+import { User } from "../entities/User";
 
 @InputType()
 class PostInput {
@@ -25,11 +26,40 @@ class PaginatedPosts {
 @Resolver(Post)
 export class PostResolver {
 
+  // FieldResolvers only runs if the graphql request the field
   @FieldResolver(() => String)
   textSnipped(
     @Root() root: Post
   ) {
     return root.text.slice(0, 50)
+  }
+
+  // fetching usr alwayr the post is required
+  // @FieldResolver(() => User)
+  // creator(
+  //   @Root() post: Post
+  // ) {
+  //   return User.findOne(post.creatorId)
+  // } BAD PERFORMANCE, doing one select for each Post creator when loading list of post, so causing a n+1
+  @FieldResolver(() => User)
+  creator(
+    @Root() post: Post,
+    @Ctx() { userLoader }: MyContext
+  ) {
+    // batches all the ids in one call and caches if its needed later
+    return userLoader.load(post.creatorId)
+  }
+
+  @FieldResolver(() => Int, { nullable: true })
+  async voteStatus(
+    @Root() post: Post,
+    @Ctx() { updootLoader, req }: MyContext
+  ) {
+    const { userId } = req.session
+    if (!userId) return null
+    // batches all the ids in one call and caches if its needed later
+    const updoot = await updootLoader.load({ userId, postId: post.id })
+    return updoot ? updoot.value : null
   }
 
   @Mutation(() => Boolean)
@@ -85,22 +115,14 @@ export class PostResolver {
   @Query(() => PaginatedPosts)
   async posts(
     @Arg('limit', () => Int) limit: number,
-    @Arg('cursor', () => String, { nullable: true }) cursor: string | null,
-    @Ctx() { req }: MyContext
+    @Arg('cursor', () => String, { nullable: true }) cursor: string | null
   ): Promise<PaginatedPosts> {
     // to know if there is more data, add 1 to the limit
     const realLimit = Math.min(50, limit)
     const realLimitPlusOne = realLimit + 1
-    const { userId } = req.session
     const replacements: any[] = [realLimitPlusOne]
-
-    if (userId) {
-      replacements.push(userId)
-    }
-    let cursordx = 2
     if (cursor) {
       replacements.push(new Date(parseInt(cursor)))
-      cursordx = replacements.length;
     }
 
     // return all posts
@@ -114,19 +136,9 @@ export class PostResolver {
     // const posts = await qb.getMany()
     const posts = await getConnection().query(
       `
-        select p.*, 
-        json_build_object(
-          'id', u.id,
-          'username', u.username,
-          'email', u.email,
-          'createdAt', u."createdAt"
-        ) creator,
-        ${userId
-        ? '(select value from updoot where "userId" = $2 and "postId" = p.id) "voteStatus"'
-        : 'null as "voteStatus"'}
+        select p.*
         from post p
-        inner join public.user u on u.id = p."creatorId"
-        ${cursor ? `where p."createdAt" < $${cursordx}` : ''}
+        ${cursor ? `where p."createdAt" < $2` : ''}
         order by p."createdAt" DESC
         limit $1
       `, replacements
@@ -140,7 +152,7 @@ export class PostResolver {
   ): Promise<Post | undefined> {
     // either a post or null
     // return post by id
-    return Post.findOne(id, { relations: ['creator'] });
+    return Post.findOne(id);
   }
 
   @Mutation(() => Post)

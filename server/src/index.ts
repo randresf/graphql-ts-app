@@ -16,6 +16,8 @@ import { Post } from "./entities/Post";
 import { User } from "./entities/User";
 import path from 'path'
 import { Updoot } from "./entities/Updoot";
+import { createUserLoader } from './utils/createUserLoader'
+import { createUpdootLoader } from "./utils/createUpdootLoader";
 
 const main = async () => {
 
@@ -72,7 +74,13 @@ const main = async () => {
       validate: false
     }),
     // express provides the request object so we can access to req and res
-    context: ({ res, req }) => ({ req, res, redis }) // provide the context to the resolvers
+    context: ({ res, req }) => ({ // provide the context to the resolvers
+      req,
+      res,
+      redis,
+      userLoader: createUserLoader(),
+      updootLoader: createUpdootLoader()
+    })
   });
 
   // adding cors:{origin:"http://localhost:3000"} here will fix cors issue but only for this route
