@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Column, BaseEntity, ManyToOne, OneToMany } from "typeorm";
-import { Field, ObjectType } from "type-graphql";
+import { Field, Int, ObjectType } from "type-graphql";
 import moment from 'moment'
 import { User } from "./User";
 import { Updoot } from "./Updoot";
@@ -24,6 +24,9 @@ export class Post extends BaseEntity { // allows Post.find or Post.insert
   @Field()
   @Column({ type: 'int', default: 0 })
   points!: number;
+
+  @Field(() => Int, { nullable: true })
+  voteStatus: number | null // 1 or -1 or null
 
   @Field()
   @Column()

@@ -18,7 +18,9 @@ export class Updoot extends BaseEntity { // allows Updoot.find or Updoot.insert
     @PrimaryColumn()
     postId: number;
 
-    @ManyToOne(() => Post, post => post.updoots)
+    @ManyToOne(() => Post, post => post.updoots, {
+        onDelete: 'CASCADE'
+    })
     post: Post;
 
 }

@@ -56,7 +56,7 @@ export class PostResolver {
             update post 
             set points = points + $1
             where id = $2;
-          `, [realValue, postId]
+          `, [2 * realValue, postId]
         )
       })
 
@@ -85,14 +85,22 @@ export class PostResolver {
   @Query(() => PaginatedPosts)
   async posts(
     @Arg('limit', () => Int) limit: number,
-    @Arg('cursor', () => String, { nullable: true }) cursor: string | null
+    @Arg('cursor', () => String, { nullable: true }) cursor: string | null,
+    @Ctx() { req }: MyContext
   ): Promise<PaginatedPosts> {
     // to know if there is more data, add 1 to the limit
     const realLimit = Math.min(50, limit)
     const realLimitPlusOne = realLimit + 1
+    const { userId } = req.session
     const replacements: any[] = [realLimitPlusOne]
+
+    if (userId) {
+      replacements.push(userId)
+    }
+    let cursordx = 2
     if (cursor) {
       replacements.push(new Date(parseInt(cursor)))
+      cursordx = replacements.length;
     }
 
     // return all posts
@@ -112,10 +120,13 @@ export class PostResolver {
           'username', u.username,
           'email', u.email,
           'createdAt', u."createdAt"
-        ) creator
+        ) creator,
+        ${userId
+        ? '(select value from updoot where "userId" = $2 and "postId" = p.id) "voteStatus"'
+        : 'null as "voteStatus"'}
         from post p
         inner join public.user u on u.id = p."creatorId"
-        ${cursor ? `where p."createdAt" < $2` : ''}
+        ${cursor ? `where p."createdAt" < $${cursordx}` : ''}
         order by p."createdAt" DESC
         limit $1
       `, replacements
@@ -125,11 +136,11 @@ export class PostResolver {
 
   @Query(() => Post, { nullable: true })
   post(
-    @Arg("id") id: number // "id" sets the expected prop name for the arg
+    @Arg("id", () => Int) id: number // "id" sets the expected prop name for the arg
   ): Promise<Post | undefined> {
     // either a post or null
     // return post by id
-    return Post.findOne(id);
+    return Post.findOne(id, { relations: ['creator'] });
   }
 
   @Mutation(() => Post)
@@ -148,24 +159,42 @@ export class PostResolver {
   }
 
   @Mutation(() => Post)
+  @UseMiddleware(isAuth)
   async updatePost(
-    @Arg("id") id: number, // "id" sets the expected prop name for the arg
-    @Arg("title", () => String, { nullable: true }) title: string, // if thhe param can be empty the type and nullable must be set
+    @Arg("id", () => Int) id: number, // "id" sets the expected prop name for the arg
+    @Arg("title") title: string, // if thhe param can be empty the type and nullable must be set
+    @Arg("text") text: string,
+    @Ctx() { req }: MyContext
   ): Promise<Post | null> {
-    const post = await Post.findOne(id);
-    if (!post) return null;
-    if (typeof title !== "undefined") {
-      post.title = title;
-      await Post.update({ id }, { title });
-    }
-    return post;
+    const { raw: result = [] } = await getConnection()
+      .createQueryBuilder()
+      .update(Post)
+      .set({ title, text })
+      .where('id = :id and "creatorId" = :creatorId', { id, creatorId: req.session.userId })
+      .returning("*")
+      .execute()
+    return result[0] as any
   }
 
   @Mutation(() => Boolean) // should reflect the type is returned from the method
   async deletePost(
-    @Arg("id") id: number, // "id" sets the expected prop name for the arg
+    @Arg("id", () => Int) id: number, // "id" sets the expected prop name for the arg
+    @Ctx() { req }: MyContext
   ): Promise<boolean> {
-    await Post.delete(id);
+    // this way is manually checking for relations
+    // const post = Post.findOne(id)
+    // if (post) {
+    //   return false
+    // }
+    // if (post.creatorId !== req.session.userId) {
+    //   throw new Error("not authorized")
+    // }
+
+    // await Updoot.delete({ postId: id });
+    // await Post.delete({ id });
+
+    // the other way is to update the entity relationship and just delete here
+    await Post.delete({ id, creatorId: req.session.userId });
     return true;
   }
 }
