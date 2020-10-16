@@ -1,4 +1,4 @@
-import { cacheExchange, Resolver } from "@urql/exchange-graphcache";
+import { Cache, cacheExchange, Resolver } from "@urql/exchange-graphcache";
 import { dedupExchange, Exchange, fetchExchange, stringifyVariables } from "urql";
 import { pipe, tap } from 'wonka'
 import {
@@ -25,6 +25,14 @@ const errorExchange: Exchange = ({ forward }) => ops$ => {
 
     )
   )
+}
+
+const invalidateAllPosts = (cache: Cache) => {
+  const allFields = cache.inspectFields('Query');
+  const fieldInfos = allFields.filter(info => info.fieldName === "posts");
+  fieldInfos.forEach((fi) => {
+    cache.invalidate("Query", "posts", fi.arguments || {})
+  })
 }
 
 const cursorPagination = (): Resolver => {
@@ -54,57 +62,6 @@ const cursorPagination = (): Resolver => {
     }
     )
     return { __typename: "PaginatedPosts", hasMore, posts: results }
-    // const visited = new Set();
-    // let result: NullArray<string> = [];
-    // let prevOffset: number | null = null;
-
-    // for (let i = 0; i < size; i++) {
-    //   const { fieldKey, arguments: args } = fieldInfos[i];
-    //   if (args === null || !compareArgs(fieldArgs, args)) {
-    //     continue;
-    //   }
-
-    //   const links = cache.resolveFieldByKey(entityKey, fieldKey) as string[];
-    //   const currentOffset = args[cursorArgument];
-
-    //   if (
-    //     links === null ||
-    //     links.length === 0 ||
-    //     typeof currentOffset !== 'number'
-    //   ) {
-    //     continue;
-    //   }
-
-    //   if (!prevOffset || currentOffset > prevOffset) {
-    //     for (let j = 0; j < links.length; j++) {
-    //       const link = links[j];
-    //       if (visited.has(link)) continue;
-    //       result.push(link);
-    //       visited.add(link);
-    //     }
-    //   } else {
-    //     const tempResult: NullArray<string> = [];
-    //     for (let j = 0; j < links.length; j++) {
-    //       const link = links[j];
-    //       if (visited.has(link)) continue;
-    //       tempResult.push(link);
-    //       visited.add(link);
-    //     }
-    //     result = [...tempResult, ...result];
-    //   }
-
-    //   prevOffset = currentOffset;
-    // }
-
-    // const hasCurrentPage = cache.resolve(entityKey, fieldName, fieldArgs);
-    // if (hasCurrentPage) {
-    //   return result;
-    // } else if (!(info as any).store.schema) {
-    //   return undefined;
-    // } else {
-    //   info.partial = true;
-    //   return result;
-    // }
   };
 };
 // this runs both in BE and FE, when we are in the SSR we need to pass the 
@@ -170,13 +127,7 @@ const createUrqlClient = (ssrExchange: any, ctx: any) => {
             createPost: (result, args, cache, info) => {
               // invalidate all of the previous cache
               // so it reloads
-              const allFields = cache.inspectFields('Query')
-              const fieldInfos = allFields.filter(
-                (info) => info.fieldName === 'posts'
-              )
-              fieldInfos.forEach((fi) => {
-                cache.invalidate('Query', 'posts', fi.arguments || {})
-              })
+              invalidateAllPosts(cache)
             },
             logout: (result, args, cache, info) => {
               betterUpdateQuery<LogoutMutation, MeQuery>(
@@ -197,6 +148,7 @@ const createUrqlClient = (ssrExchange: any, ctx: any) => {
                   return { me: res.login.user };
                 }
               );
+              invalidateAllPosts(cache)
             },
             register: (results, args, cache, info) => {
               betterUpdateQuery<RegisterMutation, MeQuery>(
